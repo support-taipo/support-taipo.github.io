@@ -77,4 +77,5 @@ jobs:
           git add ${{ steps.lang.outputs.csv_file }}
           LANG_NAME="${{ steps.lang.outputs.lang }}"
           git diff --staged --quiet || git commit -m "Update doctors data ($LANG_NAME) $(date +'%Y-%m-%d')"
+          git pull --rebase
           git push
