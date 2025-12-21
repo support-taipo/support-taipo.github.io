@@ -137,6 +137,38 @@
         var currentLang = localStorage.getItem('preferredLang') || 'EN';
         var allDoctors = []; // Store all doctors for filtering
 
+        // Translations
+        var i18n = {
+            EN: {
+                searchPlaceholder: 'Search name, address, phone...',
+                viewInMaps: 'View in Google Maps',
+                getDirections: 'Get Directions',
+                dataUpdated: 'Data updated',
+                doctors: 'Doctors',
+                found: 'Found',
+                of: 'of',
+                loading: 'Loading...',
+                errorLoading: 'Error loading data',
+                fallback: '(EN fallback)'
+            },
+            TC: {
+                searchPlaceholder: '搜尋名稱、地址、電話...',
+                viewInMaps: '在Google地圖查看',
+                getDirections: '取得路線',
+                dataUpdated: '資料更新',
+                doctors: '醫生數目',
+                found: '找到',
+                of: '/',
+                loading: '載入中...',
+                errorLoading: '載入資料時出錯',
+                fallback: '(英文版本)'
+            }
+        };
+
+        function t(key) {
+            return i18n[currentLang][key] || i18n['EN'][key];
+        }
+
         // Use Google Maps Tiles (Standard Roadmap)
         L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
             maxZoom: 20,
@@ -174,7 +206,7 @@
 
             // Show result count
             const countEl = document.getElementById('search-count');
-            countEl.textContent = `Found: ${filtered.length} of ${allDoctors.length}`;
+            countEl.textContent = `${t('found')}: ${filtered.length} ${t('of')} ${allDoctors.length}`;
             countEl.style.display = 'block';
         }
 
@@ -197,9 +229,15 @@
             currentLang = lang;
             localStorage.setItem('preferredLang', lang);
             updateLangButtons();
+            updateSearchPlaceholder();
             document.getElementById('search-input').value = '';
             document.getElementById('search-count').style.display = 'none';
             loadDoctorsData();
+        }
+
+        // Update search placeholder based on language
+        function updateSearchPlaceholder() {
+            document.getElementById('search-input').placeholder = t('searchPlaceholder');
         }
 
         // Function to parse CSV text into array of objects
@@ -282,8 +320,8 @@
                         d.Address + "<br>" +
                         (d.Phone ? "<a href='tel:" + d.Phone + "'>" + d.Phone + "</a><br>" : "") +
                         (d.Programs ? "<small>" + d.Programs.split('; ').join('<br>') + "</small><br>" : "") +
-                        "<br><a href='" + mapsLink + "' target='_blank' style='color:blue;'>View in Google Maps</a>" +
-                        "<br><a href='" + directionsLink + "' target='_blank' style='color:green; font-weight:bold;'>Get Directions</a>"
+                        "<br><a href='" + mapsLink + "' target='_blank' style='color:blue;'>" + t('viewInMaps') + "</a>" +
+                        "<br><a href='" + directionsLink + "' target='_blank' style='color:green; font-weight:bold;'>" + t('getDirections') + "</a>"
                     );
 
                     bounds.push([d.Lat, d.Lon]);
@@ -299,7 +337,7 @@
         function loadDoctorsData() {
             const csvFile = currentLang === 'TC' ? 'doctors_tc.csv' : 'doctors.csv';
             const updateInfo = document.getElementById('update-info');
-            updateInfo.textContent = 'Loading...';
+            updateInfo.textContent = t('loading');
 
             fetch(csvFile)
                 .then(response => {
@@ -331,30 +369,31 @@
                     let dateStr = '';
                     if (lastModified) {
                         const date = new Date(lastModified);
-                        const formatted = date.toLocaleDateString('en-US', {
+                        const locale = currentLang === 'TC' ? 'zh-TW' : 'en-US';
+                        const formatted = date.toLocaleDateString(locale, {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
                         });
-                        dateStr = 'Data updated: ' + formatted;
+                        dateStr = t('dataUpdated') + ': ' + formatted;
                     } else {
-                        dateStr = 'Doctors: ' + allDoctors.length;
+                        dateStr = t('doctors') + ': ' + allDoctors.length;
                     }
 
                     if (usedFallback) {
-                        dateStr += ' (EN fallback)';
+                        dateStr += ' ' + t('fallback');
                     }
                     updateInfo.textContent = dateStr;
                 })
                 .catch(error => {
                     console.error('Error loading doctors data:', error);
-                    updateInfo.textContent = 'Error loading data';
-                    alert('Failed to load doctors data. Make sure doctors.csv is in the same directory.');
+                    updateInfo.textContent = t('errorLoading');
                 });
         }
 
         // Initialize on page load
         updateLangButtons();
+        updateSearchPlaceholder();
         loadDoctorsData();
     </script>
 </body>
