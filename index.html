@@ -696,6 +696,35 @@
             setTimeout(updateSidebarWithVisibleDoctors, 100);
         }
 
+        // Extract DPID from ProfileLink
+        function getDpidFromLink(link) {
+            if (!link) return null;
+            var match = link.match(/DPID=(\d+)/);
+            return match ? match[1] : null;
+        }
+
+        // Apply GPS fallback data to doctors missing coordinates
+        function applyGpsFallback(doctors, fallbackData) {
+            var fallbackMap = {};
+            fallbackData.forEach(function(row) {
+                if (row.DPID && row.Lat && row.Lon) {
+                    fallbackMap[row.DPID] = { Lat: parseFloat(row.Lat), Lon: parseFloat(row.Lon) };
+                }
+            });
+
+            doctors.forEach(function(d) {
+                if (!d.Lat || !d.Lon) {
+                    var dpid = getDpidFromLink(d.ProfileLink);
+                    if (dpid && fallbackMap[dpid]) {
+                        d.Lat = fallbackMap[dpid].Lat;
+                        d.Lon = fallbackMap[dpid].Lon;
+                    }
+                }
+            });
+
+            return doctors;
+        }
+
         // Fetch and load the CSV file with fallback
         function loadDoctorsData() {
             const csvFile = currentLang === 'TC' ? 'doctors_tc.csv' : 'doctors.csv';
@@ -726,6 +755,22 @@
                 })
                 .then(({ text, lastModified, usedFallback }) => {
                     allDoctors = parseCSV(text);
+
+                    // For TC version, load GPS fallback for doctors missing coordinates
+                    if (currentLang === 'TC' && !usedFallback) {
+                        return fetch('gps_fallback.csv')
+                            .then(response => response.ok ? response.text() : '')
+                            .then(fallbackText => {
+                                if (fallbackText) {
+                                    var fallbackData = parseCSV(fallbackText);
+                                    allDoctors = applyGpsFallback(allDoctors, fallbackData);
+                                }
+                                return { lastModified, usedFallback };
+                            });
+                    }
+                    return { lastModified, usedFallback };
+                })
+                .then(({ lastModified, usedFallback }) => {
                     addMarkers(allDoctors);
 
                     // Display update date
