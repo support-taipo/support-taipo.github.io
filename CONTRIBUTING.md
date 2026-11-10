@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping. This project is maintained by volunteer doctors, not professional programmers, so clear, self-contained contributions are especially welcome.
+Thank you for helping. Volunteers maintain this project, so clear, self-contained contributions are especially welcome.
 
 ## Ways to help
 
@@ -14,8 +14,10 @@ Thank you for helping. This project is maintained by volunteer doctors, not prof
 Open a GitHub issue and include:
 
 1. What you expected vs. what happened
-2. The date/time (data refreshes daily, which helps narrow things down)
+2. The date/time and selected language (scheduled collection alternates languages; this is not a live availability feed)
 3. For map problems: the affected clinic or district
+
+Issues are public. Use an existing published profile link to identify a listing; do not post patient information, medical details, HKID numbers or private addresses. If a request needs private information, ask for a private contact channel before sharing it. Update the original directory as well when its information is incorrect.
 
 ## Development notes
 

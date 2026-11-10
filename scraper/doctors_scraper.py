@@ -20,6 +20,7 @@ import re
 import time
 import os
 import argparse
+import tempfile
 
 # Region button IDs on the page
 REGION_BUTTONS = ["CommandHK", "CommandKLN", "CommandNT"]
@@ -65,18 +66,21 @@ def scrape_region(driver, region_id, base_url, max_retries=3):
                 all_pages_html.append(html)
                 print(f"    Page {page_num} scraped")
 
-                try:
-                    next_btn = driver.find_element(By.CSS_SELECTOR,
-                        ".pagination .PagedList-skipToNext a"
-                    )
-                    driver.execute_script("arguments[0].click();", next_btn)
-                    page_num += 1
-                    time.sleep(2)
-                    WebDriverWait(driver, 15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "tbody tr .PHName"))
-                    )
-                except:
+                next_buttons = driver.find_elements(By.CSS_SELECTOR,
+                    ".pagination .PagedList-skipToNext a"
+                )
+                if not next_buttons:
                     break
+                # A failed next-page request must not turn into a partial success.
+                driver.execute_script("arguments[0].click();", next_buttons[0])
+                WebDriverWait(driver, 20).until(
+                    lambda browser: browser.find_element(By.CSS_SELECTOR, "tbody").get_attribute('outerHTML') != html
+                )
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "tbody tr .PHName"))
+                )
+                page_num += 1
+                time.sleep(2)
 
             return "\n".join(all_pages_html)
 
@@ -108,7 +112,7 @@ def scrape_all_regions(lang="EN"):
                 all_html_parts.append(html)
                 print(f"  Got {len(html)} characters from {region_id}")
             else:
-                print(f"  Failed to scrape {region_id}")
+                raise RuntimeError(f"Collection failed for {region_id}; keeping the previous published data")
     finally:
         driver.quit()
 
@@ -196,15 +200,24 @@ def parse_html_to_data(html_content):
 def save_to_csv(data_list, output_filename="doctors.csv"):
     """Save data to CSV file"""
     if not data_list:
-        print("No data to save")
-        return
+        raise ValueError("No records collected; refusing to replace the previous CSV")
 
     fieldnames = ['Name', 'ProfileLink', 'Description', 'Address', 'Phone', 'Lat', 'Lon', 'Programs']
 
-    with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(data_list)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', newline='', encoding='utf-8',
+                dir=os.path.dirname(os.path.abspath(output_filename)),
+                prefix='.doctors-', suffix='.tmp', delete=False) as csvfile:
+            temporary_path = csvfile.name
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data_list)
+        os.replace(temporary_path, output_filename)
+        temporary_path = None
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.remove(temporary_path)
 
     print(f"Saved {len(data_list)} records to {output_filename}")
 
@@ -223,8 +236,7 @@ def main():
     html_content = scrape_all_regions(lang)
 
     if not html_content:
-        print("No data scraped!")
-        return
+        raise RuntimeError("No source data collected; keeping the previous published CSV")
 
     print("\nParsing scraped data...")
     data_list = parse_html_to_data(html_content)

@@ -63,6 +63,7 @@ jobs:
 
       - name: Run scraper
         run: |
+          python -m unittest discover -s tests -v
           cd scraper
           python doctors_scraper.py --lang ${{ steps.lang.outputs.lang }}
 

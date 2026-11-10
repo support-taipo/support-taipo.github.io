@@ -1,21 +1,28 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Doctors Map</title>
+    <title>Doctors Map · Independent volunteer project</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <meta name="description" content="An independent volunteer map of Primary Care Directory listings. Confirm current services, eligibility and appointments with the DHC or clinic." />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <link rel="stylesheet" href="assets/leaflet/leaflet.css" />
     <style>
         body {
             margin: 0;
             padding: 0;
             display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            font-family: Arial, sans-serif;
         }
 
         #sidebar {
             width: 300px;
-            height: 100vh;
+            height: 100%;
+            min-height: 0;
             background: #fff;
             border-right: 1px solid #ddd;
             display: flex;
@@ -119,26 +126,19 @@
 
         #map {
             flex: 1;
-            height: 100vh;
+            height: 100%;
+            min-width: 0;
         }
 
         #update-info {
-            position: absolute;
-            bottom: 10px;
-            left: 310px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            color: #333;
-            z-index: 1000;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            margin-top: 6px;
+            font-size: 11px;
+            color: #52525b;
         }
 
         #lang-switcher {
             position: absolute;
-            bottom: 35px;
+            bottom: 12px;
             left: 310px;
             background: rgba(255, 255, 255, 0.95);
             padding: 3px;
@@ -229,17 +229,17 @@
 
         @media (max-width: 768px) {
             body {
-                display: block;
+                display: flex;
             }
             #sidebar {
                 display: none;
             }
             #map {
                 width: 100%;
-                height: 100vh;
+                height: 100%;
             }
             #lang-switcher {
-                bottom: 30px;
+                bottom: 12px;
                 left: 10px;
             }
             #update-info {
@@ -252,35 +252,114 @@
                 left: 50px;
             }
         }
+        #workspace { position: relative; display: flex; flex: 1; min-height: 0; }
+        #service-notice { flex: none; padding: 10px 14px; background: #fff; border-bottom: 1px solid #d4d4d8; color: #27272a; }
+        .notice-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .notice-heading h1 { margin: 0; font-size: 16px; line-height: 1.4; }
+        #service-notice p { margin: 6px 0 0; font-size: 12px; line-height: 1.5; max-width: 1100px; }
+        #service-notice a { color: #1759a6; }
+        #notices-open, #notices-close { border: 1px solid #cbd5e1; border-radius: 5px; padding: 7px 10px; background: #fff; color: #1759a6; font: inherit; font-size: 12px; cursor: pointer; }
+        #notices-open { white-space: nowrap; }
+        :focus-visible { outline: 2px solid #1759a6; outline-offset: 3px; }
+        #sources-dialog { width: min(680px, calc(100% - 32px)); max-height: 84vh; padding: 0; border: 1px solid #d4d4d8; border-radius: 10px; color: #27272a; box-sizing: border-box; }
+        #sources-dialog::backdrop { background: rgba(15, 23, 42, .4); }
+        .dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; position: sticky; top: 0; padding: 14px 18px; background: #fff; border-bottom: 1px solid #e4e4e7; }
+        .dialog-heading h2 { margin: 0; font-size: 18px; }
+        .dialog-content { padding: 0 18px 18px; font-size: 14px; line-height: 1.65; }
+        .dialog-content h3 { margin: 20px 0 6px; font-size: 15px; }
+        .dialog-content p { margin: 8px 0; }
+        .dialog-content a { color: #1759a6; overflow-wrap: anywhere; }
+        .landsd-credit { display: flex; align-items: center; gap: 5px; padding: 3px 5px; background: #fff; color: #333; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.15); text-decoration: none; font: 11px/1.3 Arial,sans-serif; }
+        .landsd-credit img { width: 32px; height: 32px; }
+        .leaflet-control-attribution { max-width: min(430px, calc(100vw - 90px)); font-size: 10px; }
+        .location-note { margin: 6px 0; color: #52525b; font-size: 11px; line-height: 1.4; }
+        @media (max-width: 768px) {
+            #service-notice { padding: 9px 10px; }
+            .notice-heading h1 { font-size: 14px; }
+            #service-notice p { font-size: 11px; }
+            #search-container { right: 10px; }
+            #search-input { box-sizing: border-box; width: min(250px, 100%); }
+            .leaflet-control-attribution { max-width: calc(100vw - 100px); }
+        }
     </style>
 </head>
 
 <body>
+    <header id="service-notice">
+        <div class="notice-heading">
+            <h1 data-i18n="pageTitle">Doctors Map · Independent volunteer project</h1>
+            <button type="button" id="notices-open" data-i18n="sourcesPrivacy" aria-haspopup="dialog">Sources and privacy</button>
+        </div>
+        <p><span data-i18n="serviceNotice">Confirm clinic details before travelling. Free relief consultations require DHC/Express pairing; confirm current eligibility and availability with the DHC.</span> <a href="https://apps.pcdirectory.gov.hk/Public/EN/ServiceTypeAdvancedSearch?ProfID=RMP&amp;ServiceType=TaiPoService" id="source-list-link" target="_blank" rel="noopener noreferrer" data-i18n="officialList">Official source list</a></p>
+        <div id="update-info" role="status">Loading...</div>
+    </header>
+    <div id="workspace">
     <div id="sidebar">
-        <div id="sidebar-header">Doctors on screen: 0</div>
+        <div id="sidebar-header">Practice listings on screen: 0</div>
         <ul id="sidebar-list"></ul>
     </div>
     <div id="map"></div>
     <div id="search-container">
-        <input type="text" id="search-input" placeholder="Search name, address, phone...">
+        <input type="search" id="search-input" placeholder="Search name, address, phone..." aria-label="Search published practice listings" autocomplete="off">
     </div>
     <div id="search-count"></div>
     <div id="lang-switcher">
-        <button id="btn-en" onclick="switchLanguage('EN')">EN</button>
-        <button id="btn-tc" onclick="switchLanguage('TC')">繁中</button>
+        <button type="button" id="btn-en" onclick="switchLanguage('EN')" aria-label="English">EN</button>
+        <button type="button" id="btn-tc" onclick="switchLanguage('TC')" aria-label="繁體中文">繁中</button>
     </div>
-    <div id="update-info">Loading...</div>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    </div>
+    <dialog id="sources-dialog" aria-labelledby="sources-dialog-title">
+        <div class="dialog-heading">
+            <h2 id="sources-dialog-title" data-i18n="sourcesPrivacy">Sources and privacy</h2>
+            <button type="button" id="notices-close" data-i18n="close">Close</button>
+        </div>
+        <div class="dialog-content" data-notice-lang="EN">
+            <h3>About this map</h3>
+            <p>This is an independent volunteer project. It is not an official government service and does not imply government endorsement or recommend a particular practitioner. Listings do not confirm appointment availability or entitlement to free treatment. This map provides directory information, not medical advice or a booking service.</p>
+            <h3>Clinic information and service conditions</h3>
+            <p>Source: <a href="https://apps.pcdirectory.gov.hk/Public/EN/ServiceTypeAdvancedSearch?ProfID=RMP&amp;ServiceType=TaiPoService" target="_blank" rel="noopener noreferrer">Primary Care Directory</a>, Primary Healthcare Commission, Health Bureau, Government of the Hong Kong SAR. The source list states that pairing by a District Health Centre/Express (DHC/Express) is required for relief consultations.</p>
+            <p>Confirm current arrangements, charges and eligibility with the DHC or clinic before visiting. The <a href="https://www.news.gov.hk/eng/2026/02/20260226/20260226_160202_706.html" target="_blank" rel="noopener noreferrer">government announcement of 26 February 2026</a> extended the relief schemes to 31 August 2026; this map does not confirm any later extension. Hospital Authority fee waivers are a separate arrangement.</p>
+            <p>Scheduled collection alternates between English and Traditional Chinese. A CSV file timestamp is not confirmation by a clinic that its information or services remain current. Listings may be incomplete, and map positions can be approximate. Some missing positions use separately maintained coordinate corrections. Records without usable coordinates are not plotted; consult the original source list for those records. Check the published address and original profile.</p>
+            <h3>Sources and copyright</h3>
+            <p>Directory material is &copy; the Government of the Hong Kong SAR unless otherwise indicated; third-party rights remain with their owners. Reuse is subject to the <a href="https://apps.pcdirectory.gov.hk/Public/EN/Common/ImportantNotice" target="_blank" rel="noopener noreferrer">directory's copyright notice</a>. Source links and attribution do not imply approval of this map.</p>
+            <p>Map from Lands Department. Map information is &copy; the Government of the Hong Kong SAR and is supplied subject to the <a href="https://portal.csdi.gov.hk/csdi-webpage/doc/TNC" target="_blank" rel="noopener noreferrer">CSDI terms</a>. Map information is provided without a guarantee of accuracy, completeness or suitability.</p>
+            <p>The <a href="https://github.com/support-taipo/support-taipo.github.io/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT licence</a> applies to this project's code, not to third-party directory records, map data or the Lands Department logo. Leaflet's licence is retained with the <a href="assets/leaflet/LICENSE" target="_blank" rel="noopener noreferrer">bundled library</a>.</p>
+            <h3>Privacy and corrections</h3>
+            <p>Search runs in your browser. The app does not ask for patient information or your device location, and it saves only your language preference in local storage. The site and its bundled map library are served by GitHub Pages. Map requests go to Lands Department; these providers may process ordinary network information such as IP addresses under their own policies. External directory and Google Maps links open separate services when you choose them.</p>
+            <p><a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">GitHub privacy statement</a> · <a href="https://portal.csdi.gov.hk/csdi-webpage/doc/TNC" target="_blank" rel="noopener noreferrer">CSDI privacy terms</a></p>
+            <p>For listing corrections or privacy enquiries, <a href="https://github.com/support-taipo/support-taipo.github.io/issues/new" target="_blank" rel="noopener noreferrer">contact the volunteer maintainers through a project issue</a>, using only the published profile link. GitHub issues are public: do not post patient information, HKID numbers, private addresses or medical details. If your enquiry involves private information, ask for a private contact channel before sharing it. Clinic records should also be corrected at the original directory.</p>
+        </div>
+        <div class="dialog-content" data-notice-lang="TC" hidden>
+            <h3>關於此地圖</h3>
+            <p>本網站為獨立義務項目，並非政府官方服務，亦不代表政府認可或推薦任何醫護人員。名單不保證診所有預約名額或使用者可獲免費治療。本地圖只提供名錄資料，不提供醫療建議或預約服務。</p>
+            <h3>診所資料及服務條件</h3>
+            <p>資料來源：香港特別行政區政府醫務衞生局基層醫療署的<a href="https://apps.pcdirectory.gov.hk/Public/TC/ServiceTypeAdvancedSearch?ProfID=RMP&amp;ServiceType=TaiPoService" target="_blank" rel="noopener noreferrer">《基層醫療指南》</a>。官方名單註明，災後義診須經地區康健中心／站配對。</p>
+            <p>到訪前請向地區康健中心／站或診所確認現行安排、收費及資格。<a href="https://www.news.gov.hk/eng/2026/02/20260226/20260226_160202_706.html" target="_blank" rel="noopener noreferrer">政府於2026年2月26日公布</a>將有關義診計劃延長至2026年8月31日；本地圖並未確認其後是否再有延長。醫院管理局的費用豁免屬另一項安排。</p>
+            <p>系統定時交替收集英文及繁體中文資料。CSV檔案時間不代表診所已確認資料或服務仍然有效。名單或有遺漏，地圖位置亦可能為約數。部分缺漏位置使用另行維護的座標修正資料；沒有可用座標的紀錄不會顯示於地圖，請參閱官方來源名單。請核對原有地址及醫護人員資料頁。</p>
+            <h3>來源及版權</h3>
+            <p>除另有註明外，名錄資料版權屬香港特別行政區政府所有；第三方資料的權利仍屬原權利人。使用資料須遵守<a href="https://apps.pcdirectory.gov.hk/Public/EN/Common/ImportantNotice" target="_blank" rel="noopener noreferrer">《基層醫療指南》的版權條款</a>。標示來源或提供連結並不代表本網站已獲認可。</p>
+            <p>地圖由地政總署提供。地圖資料版權屬香港特別行政區政府所有，使用須遵守<a href="https://portal.csdi.gov.hk/csdi-webpage/doc/TNC" target="_blank" rel="noopener noreferrer">空間數據共享平台條款</a>。地圖資料的準確性、完整性及適用性均不獲保證。</p>
+            <p>本項目的<a href="https://github.com/support-taipo/support-taipo.github.io/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT授權</a>只適用於程式碼，不適用於第三方名錄、地圖資料或地政總署標誌。Leaflet的授權聲明保留於<a href="assets/leaflet/LICENSE" target="_blank" rel="noopener noreferrer">隨附程式庫</a>內。</p>
+            <h3>私隱及資料更正</h3>
+            <p>搜尋在瀏覽器內進行。本程式不要求提供病人資料或裝置位置，只在瀏覽器本機儲存語言選項。網站及隨附地圖程式庫由GitHub Pages提供，地圖請求則傳送至地政總署；服務供應者可按各自政策處理IP位址等一般網絡資料。只有當你選擇外部連結時，才會開啟名錄或Google地圖等其他服務。</p>
+            <p><a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">GitHub私隱聲明</a> · <a href="https://portal.csdi.gov.hk/csdi-webpage/doc/TNC" target="_blank" rel="noopener noreferrer">空間數據共享平台私隱條款</a></p>
+            <p>如需更正名單或查詢私隱事項，可透過<a href="https://github.com/support-taipo/support-taipo.github.io/issues/new" target="_blank" rel="noopener noreferrer">GitHub項目問題頁聯絡義務維護者</a>，只提供已公開的資料頁連結。該頁為公開頁面，請勿張貼病人資料、身份證號碼、私人地址或醫療詳情。如事項涉及私人資料，請先要求提供私人聯絡方式，再作分享。診所資料亦應於原有名錄更正。</p>
+        </div>
+    </dialog>
+    <script src="assets/leaflet/leaflet.js"></script>
     <script>
         // Initialize map
-        var map = L.map('map').setView([22.28, 114.15], 13);
+        var map = L.map('map', { minZoom: 10, maxZoom: 20 }).setView([22.28, 114.15], 13);
         var markersLayer = L.layerGroup().addTo(map);
-        var currentLang = localStorage.getItem('preferredLang') || 'EN';
+        var currentLang = 'EN';
+        try { currentLang = localStorage.getItem('preferredLang') === 'TC' ? 'TC' : 'EN'; } catch (error) { /* Storage may be disabled. */ }
         var allDoctors = []; // Store all doctors for filtering
         var currentGroups = []; // Store current marker groups
         var markerMap = {}; // Map group index to marker
         var selectedGroupIndex = null; // Currently selected group in sidebar
         var isNavigating = false; // Flag to prevent sidebar updates during navigation
+        var latestDataLoad = 0;
+        var labelLayer;
 
         // Translations
         var i18n = {
@@ -288,36 +367,74 @@
                 searchPlaceholder: 'Search name, address, phone...',
                 viewInMaps: 'View in Google Maps',
                 getDirections: 'Get Directions',
-                dataUpdated: 'Data updated',
-                doctors: 'Doctors',
+                dataUpdated: 'CSV file timestamp',
+                doctors: 'Practice listings',
+                mapped: 'Mapped',
                 found: 'Found',
                 of: 'of',
                 loading: 'Loading...',
                 errorLoading: 'Error loading data',
                 fallback: '(EN fallback)',
-                doctorsOnScreen: 'Doctors on screen',
-                doctorsAtLocation: 'Doctors at this location',
-                andMore: 'and {n} more'
+                doctorsOnScreen: 'Practice listings on screen',
+                doctorsAtLocation: 'Listings near this marker',
+                andMore: 'and {n} more',
+                pageTitle: 'Doctors Map · Independent volunteer project',
+                sourcesPrivacy: 'Sources and privacy',
+                serviceNotice: 'Confirm clinic details before travelling. Free relief consultations require DHC/Express pairing; confirm current eligibility and availability with the DHC.',
+                officialList: 'Official source list',
+                close: 'Close',
+                searchLabel: 'Search published practice listings',
+                locationNote: 'Map positions are indicative. Check the address and original directory profile.',
+                fileDateNote: 'A hosting file timestamp does not confirm clinic information or service availability.'
             },
             TC: {
                 searchPlaceholder: '搜尋名稱、地址、電話...',
                 viewInMaps: '在Google地圖查看',
                 getDirections: '取得路線',
-                dataUpdated: '資料更新',
-                doctors: '醫生數目',
+                dataUpdated: 'CSV檔案時間',
+                doctors: '執業紀錄',
+                mapped: '已標示',
                 found: '找到',
                 of: '/',
                 loading: '載入中...',
                 errorLoading: '載入資料時出錯',
                 fallback: '(英文版本)',
-                doctorsOnScreen: '畫面上的醫生',
-                doctorsAtLocation: '此位置的醫生',
-                andMore: '及其他 {n} 位'
+                doctorsOnScreen: '畫面上的執業紀錄',
+                doctorsAtLocation: '此標記附近的紀錄',
+                andMore: '及其他 {n} 位',
+                pageTitle: '醫生地圖 · 獨立義務項目',
+                sourcesPrivacy: '來源及私隱',
+                serviceNotice: '到訪前請核對診所資料。災後免費義診須經地區康健中心／站配對，現行資格及服務安排請先向中心／站確認。',
+                officialList: '官方來源名單',
+                close: '關閉',
+                searchLabel: '搜尋已公開的執業紀錄',
+                locationNote: '地圖位置只供參考，請核對地址及原有名錄資料頁。',
+                fileDateNote: '網站檔案時間不代表診所已確認資料或服務仍然有效。'
             }
         };
 
         function t(key) {
             return i18n[currentLang][key] || i18n['EN'][key];
+        }
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(character) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+            });
+        }
+
+        function safeProfileUrl(value) {
+            if (!value) return '';
+            try {
+                var url = new URL(String(value), 'https://apps.pcdirectory.gov.hk/');
+                if (url.protocol !== 'https:' || url.hostname !== 'apps.pcdirectory.gov.hk' || url.username || url.password) return '';
+                return url.href;
+            } catch (error) { return ''; }
+        }
+
+        function phoneHref(value) {
+            var phone = String(value || '').replace(/[^0-9+().\s-]/g, '');
+            return (phone.match(/\d/g) || []).length >= 3 ? 'tel:' + phone : '';
         }
 
         // Generate sidebar item HTML for a single doctor
@@ -326,29 +443,33 @@
             var mapsLink = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(searchQuery);
             var directionsLink = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(d.Address);
 
-            var nameHtml = d.ProfileLink
-                ? '<a href="' + d.ProfileLink + '" target="_blank" onclick="event.stopPropagation();">' + d.Name + '</a>'
-                : d.Name;
+            var profileUrl = safeProfileUrl(d.ProfileLink);
+            var nameHtml = profileUrl
+                ? '<a href="' + escapeHtml(profileUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">' + escapeHtml(d.Name) + '</a>'
+                : escapeHtml(d.Name);
 
             var html = '<div class="sidebar-item-name">' + nameHtml + '</div>';
 
             if (d.Description) {
-                html += '<div class="sidebar-item-description">' + d.Description + '</div>';
+                html += '<div class="sidebar-item-description">' + escapeHtml(d.Description) + '</div>';
             }
 
-            html += '<div class="sidebar-item-address">' + (d.Address || '') + '</div>';
+            html += '<div class="sidebar-item-address">' + escapeHtml(d.Address) + '</div>';
 
             if (d.Phone) {
-                html += '<div class="sidebar-item-phone"><a href="tel:' + d.Phone + '" onclick="event.stopPropagation();">' + d.Phone + '</a></div>';
+                var telephone = phoneHref(d.Phone);
+                html += '<div class="sidebar-item-phone">' + (telephone
+                    ? '<a href="' + escapeHtml(telephone) + '" onclick="event.stopPropagation();">' + escapeHtml(d.Phone) + '</a>'
+                    : escapeHtml(d.Phone)) + '</div>';
             }
 
             if (d.Programs) {
-                html += '<div class="sidebar-item-programs">' + d.Programs.split('; ').join('<br>') + '</div>';
+                html += '<div class="sidebar-item-programs">' + String(d.Programs).split('; ').map(escapeHtml).join('<br>') + '</div>';
             }
 
             html += '<div class="sidebar-item-links">' +
-                '<a href="' + mapsLink + '" target="_blank" onclick="event.stopPropagation();" style="color:blue;">' + t('viewInMaps') + '</a>' +
-                '<a href="' + directionsLink + '" target="_blank" onclick="event.stopPropagation();" style="color:green;">' + t('getDirections') + '</a>' +
+                '<a href="' + escapeHtml(mapsLink) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:blue;">' + t('viewInMaps') + '</a>' +
+                '<a href="' + escapeHtml(directionsLink) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:green;">' + t('getDirections') + '</a>' +
                 '</div>';
 
             return html;
@@ -464,11 +585,34 @@
             updateSidebarWithVisibleDoctors();
         }
 
-        // Use Google Maps Tiles (Standard Roadmap)
-        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            attribution: '© Google'
+        // LandsD's public API supplies the basemap and separate language labels.
+        var landsdRoot = 'https://mapapi.hkmapservice.gov.hk/gs/api/v1.0.0/xyz/';
+        L.tileLayer(landsdRoot + 'basemap/WGS84/{z}/{x}/{y}.png', {
+            minZoom: 10, maxZoom: 20, updateWhenIdle: true, keepBuffer: 1,
+            attribution: 'Map from <a href="https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI" target="_blank" rel="noopener noreferrer">Lands Department</a> · &copy; The Government of the Hong Kong SAR'
         }).addTo(map);
+        map.createPane('landsd-labels');
+        map.getPane('landsd-labels').style.zIndex = 350;
+        map.getPane('landsd-labels').style.pointerEvents = 'none';
+
+        function updateMapLabels() {
+            if (labelLayer) map.removeLayer(labelLayer);
+            var language = currentLang === 'TC' ? 'tc' : 'en';
+            labelLayer = L.tileLayer(landsdRoot + 'label/hk/' + language + '/WGS84/{z}/{x}/{y}.png', {
+                minZoom: 10, maxZoom: 20, pane: 'landsd-labels', updateWhenIdle: true, keepBuffer: 1
+            }).addTo(map);
+        }
+
+        var landsdLogo = L.control({ position: 'bottomright' });
+        landsdLogo.onAdd = function() {
+            var credit = L.DomUtil.create('a', 'landsd-credit');
+            credit.href = 'https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI';
+            credit.target = '_blank'; credit.rel = 'noopener noreferrer';
+            credit.innerHTML = '<img src="assets/landsd-logo.jpg" alt="Lands Department logo" width="32" height="32"><span>Map from<br>Lands Department</span>';
+            L.DomEvent.disableClickPropagation(credit);
+            return credit;
+        };
+        landsdLogo.addTo(map);
 
         // Debounce function
         function debounce(func, wait) {
@@ -517,12 +661,26 @@
         function updateLangButtons() {
             document.getElementById('btn-en').classList.toggle('active', currentLang === 'EN');
             document.getElementById('btn-tc').classList.toggle('active', currentLang === 'TC');
+            document.getElementById('btn-en').setAttribute('aria-pressed', currentLang === 'EN');
+            document.getElementById('btn-tc').setAttribute('aria-pressed', currentLang === 'TC');
+            document.documentElement.lang = currentLang === 'TC' ? 'zh-Hant' : 'en';
+            document.title = t('pageTitle');
+            document.querySelectorAll('[data-i18n]').forEach(function(element) {
+                element.textContent = t(element.dataset.i18n);
+            });
+            document.querySelectorAll('[data-notice-lang]').forEach(function(element) {
+                element.hidden = element.dataset.noticeLang !== currentLang;
+            });
+            document.getElementById('source-list-link').href = 'https://apps.pcdirectory.gov.hk/Public/' + currentLang + '/ServiceTypeAdvancedSearch?ProfID=RMP&ServiceType=TaiPoService';
+            document.getElementById('search-input').setAttribute('aria-label', t('searchLabel'));
+            document.getElementById('update-info').title = t('fileDateNote');
+            updateMapLabels();
         }
 
         // Switch language and reload data
         function switchLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('preferredLang', lang);
+            currentLang = lang === 'TC' ? 'TC' : 'EN';
+            try { localStorage.setItem('preferredLang', currentLang); } catch (error) { /* Optional preference only. */ }
             updateLangButtons();
             updateSearchPlaceholder();
             document.getElementById('search-input').value = '';
@@ -604,7 +762,7 @@
             var groups = [];
 
             doctors.forEach(function (d) {
-                if (!d.Lat || !d.Lon) return;
+                if (!Number.isFinite(d.Lat) || !Number.isFinite(d.Lon) || !d.Lat || !d.Lon || Math.abs(d.Lat) > 90 || Math.abs(d.Lon) > 180) return;
 
                 var foundGroup = null;
                 for (var i = 0; i < groups.length; i++) {
@@ -632,21 +790,7 @@
 
         // Generate popup HTML for a single doctor
         function getDoctorPopupHtml(d) {
-            var searchQuery = d.Name + ", " + d.Address;
-            var mapsLink = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(searchQuery);
-            var directionsLink = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(d.Address);
-
-            var nameHtml = d.ProfileLink
-                ? "<b><a href='" + d.ProfileLink + "' target='_blank' style='color:#1a0dab;text-decoration:none;'>" + d.Name + "</a></b>"
-                : "<b>" + d.Name + "</b>";
-
-            return nameHtml + "<br>" +
-                (d.Description ? d.Description + "<br>" : "") +
-                d.Address + "<br>" +
-                (d.Phone ? "<a href='tel:" + d.Phone + "'>" + d.Phone + "</a><br>" : "") +
-                (d.Programs ? "<small>" + d.Programs.split('; ').join('<br>') + "</small><br>" : "") +
-                "<br><a href='" + mapsLink + "' target='_blank' style='color:blue;'>" + t('viewInMaps') + "</a>" +
-                "<br><a href='" + directionsLink + "' target='_blank' style='color:green; font-weight:bold;'>" + t('getDirections') + "</a>";
+            return getDoctorSidebarHtml(d) + '<p class="location-note">' + escapeHtml(t('locationNote')) + '</p>';
         }
 
         // Function to add markers to map
@@ -730,6 +874,7 @@
 
         // Fetch and load the CSV file with fallback
         function loadDoctorsData() {
+            const loadId = ++latestDataLoad;
             const csvFile = currentLang === 'TC' ? 'doctors_tc.csv' : 'doctors.csv';
             const updateInfo = document.getElementById('update-info');
             updateInfo.textContent = t('loading');
@@ -757,23 +902,27 @@
                     throw new Error('Failed to load doctors.csv');
                 })
                 .then(({ text, lastModified, usedFallback }) => {
-                    allDoctors = parseCSV(text);
+                    if (loadId !== latestDataLoad) return null;
+                    const parsedDoctors = parseCSV(text);
+                    if (!parsedDoctors.length || !parsedDoctors.every(doctor => doctor.Name && doctor.Address)) {
+                        throw new Error('The source CSV is empty or incomplete');
+                    }
+                    allDoctors = parsedDoctors;
 
                     // Load GPS fallback for doctors missing coordinates
-                    if (!usedFallback) {
-                        return fetch('gps_fallback.csv')
+                    return fetch('gps_fallback.csv')
                             .then(response => response.ok ? response.text() : '')
                             .then(fallbackText => {
                                 if (fallbackText) {
                                     var fallbackData = parseCSV(fallbackText);
-                                    allDoctors = applyGpsFallback(allDoctors, fallbackData);
+                                    if (loadId === latestDataLoad) allDoctors = applyGpsFallback(allDoctors, fallbackData);
                                 }
                                 return { lastModified, usedFallback };
-                            });
-                    }
-                    return { lastModified, usedFallback };
+                            }).catch(() => ({ lastModified, usedFallback }));
                 })
-                .then(({ lastModified, usedFallback }) => {
+                .then(result => {
+                    if (!result || loadId !== latestDataLoad) return;
+                    const { lastModified, usedFallback } = result;
                     addMarkers(allDoctors);
 
                     // Display update date
@@ -786,10 +935,13 @@
                             month: 'long',
                             day: 'numeric'
                         });
-                        dateStr = t('dataUpdated') + ': ' + formatted;
+                        dateStr = t('dataUpdated') + ': ' + formatted + ' · ' + t('doctors') + ': ' + allDoctors.length;
                     } else {
                         dateStr = t('doctors') + ': ' + allDoctors.length;
                     }
+
+                    var mappedCount = currentGroups.reduce(function(total, group) { return total + group.doctors.length; }, 0);
+                    dateStr += ' · ' + t('mapped') + ': ' + mappedCount + '/' + allDoctors.length;
 
                     if (usedFallback) {
                         dateStr += ' ' + t('fallback');
@@ -797,10 +949,20 @@
                     updateInfo.textContent = dateStr;
                 })
                 .catch(error => {
+                    if (loadId !== latestDataLoad) return;
                     console.error('Error loading doctors data:', error);
                     updateInfo.textContent = t('errorLoading');
                 });
         }
+
+        var sourcesDialog = document.getElementById('sources-dialog');
+        document.getElementById('notices-open').addEventListener('click', function() { sourcesDialog.showModal(); });
+        document.getElementById('notices-close').addEventListener('click', function() { sourcesDialog.close(); });
+        sourcesDialog.addEventListener('click', function(event) {
+            if (event.target !== sourcesDialog) return;
+            var bounds = sourcesDialog.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) sourcesDialog.close();
+        });
 
         // Update sidebar when map is moved or zoomed
         map.on('moveend', updateSidebarWithVisibleDoctors);
